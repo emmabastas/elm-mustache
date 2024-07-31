@@ -1,0 +1,51 @@
+#! /usr/bin/env node
+
+const fs = require("fs")
+const path = require("path")
+const elmMustache = require("..")
+
+const specs = [
+    {
+        tests: readSpec("./tests/specs/comments.json"),
+        outPath: "./tests/PreparsedUnitTests/CommentsFull.elm",
+        moduleName: "PreparsedUnitTests.CommentsFull",
+    },
+    {
+        tests: readSpec("./tests/specs/delimiters.json")
+            .filter(({ name }) => ![
+                "Partial Inheritence",
+                "Post-Partial Behavior",
+            ].includes(name)),
+        outPath: "./tests/PreparsedUnitTests/Delimiters.elm",
+        moduleName: "PreparsedUnitTests.Delimiters",
+    },
+    {
+        tests: readSpec("./tests/specs/inverted.json"),
+        outPath: "./tests/PreparsedUnitTests/Inverted.elm",
+        moduleName: "PreparsedUnitTests.Inverted",
+    },
+    {
+        tests: readSpec("./tests/specs/interpolation.json"),
+        outPath: "./tests/PreparsedUnitTests/Interpolation.elm",
+        moduleName: "PreparsedUnitTests.Interpolation",
+    },
+    {
+        tests: readSpec("./tests/specs/sections.json"),
+        outPath: "./tests/PreparsedUnitTests/Sections.elm",
+        moduleName: "PreparsedUnitTests.Sections",
+    },
+]
+
+function readSpec(specPath) {
+    const str = fs.readFileSync(path.join(process.cwd(), specPath))
+    const json = JSON.parse(str)
+    return json["tests"]
+}
+
+for (let {tests, outPath, moduleName} of specs) {
+    let s = ""
+    for (let line of elmMustache._makeModule(moduleName, "full", tests, true)) {
+      s = s + line
+    }
+    fs.writeFileSync(outPath, s)
+}

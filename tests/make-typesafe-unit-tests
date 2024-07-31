@@ -1,0 +1,100 @@
+#! /usr/bin/env node
+
+const fs = require("fs")
+const path = require("path")
+const elmMustache = require("..")
+
+const specs = [
+    {
+        tests: readSpec("./tests/specs/comments.json")
+            .filter(({ name }) => ![
+                "Variable Name Collision",
+            ].includes(name)),
+        outPath: "./tests/TypesafeUnitTests/Comments.elm",
+        moduleName: "TypesafeUnitTests.Comments",
+    },
+    {
+        tests: readSpec("./tests/specs/delimiters.json")
+            .filter(({ name }) => ![
+                "Partial Inheritence",
+                "Post-Partial Behavior",
+            ].includes(name)),
+        outPath: "./tests/TypesafeUnitTests/Delimiters.elm",
+        moduleName: "TypesafeUnitTests.Delimiters",
+    },
+    {
+        tests: readSpec("./tests/specs/inverted.json")
+            .filter(({ name }) => ![
+                "Null is falsey",
+                "Context",
+                "Context Misses",
+                "List",
+                "Empty List",
+                "Dotted Names - Broken Chains",
+            ].includes(name)),
+        outPath: "./tests/TypesafeUnitTests/Inverted.elm",
+        moduleName: "TypesafeUnitTests.Inverted",
+    },
+    {
+        tests: readSpec("./tests/specs/interpolation.json")
+            .filter(({ name }) => ![
+                "Basic Null Interpolation",
+                "Triple Mustache Null Interpolation",
+                "Ampersand Null Interpolation",
+
+                "Basic Context Miss Interpolation",
+                "Triple Mustache Context Miss Interpolation",
+                "Ampersand Context Miss Interpolation",
+
+                "Dotted Names - Basic Interpolation",
+                "Dotted Names - Triple Mustache Interpolation",
+                "Dotted Names - Ampersand Interpolation",
+                "Dotted Names - Arbitrary Depth",
+                "Dotted Names - Broken Chains",
+                "Dotted Names - Broken Chain Resolution",
+                "Dotted Names - Initial Resolution",
+                "Dotted Names - Context Precedence",
+            ].includes(name)),
+        outPath: "./tests/TypesafeUnitTests/Interpolation.elm",
+        moduleName: "TypesafeUnitTests.Interpolation",
+    },
+    {
+        tests: readSpec("./tests/specs/sections.json")
+            .filter(({ name }) => ![
+                "Empty List",
+                "Context Misses",
+                "Parent contexts",
+                "Null is falsey",
+                "Context",
+                "List",
+                "Deeply Nested Contexts",
+                "List Contexts",
+                "Implicit Iterator - Root-level",
+                "Implicit Iterator - String",
+                "Implicit Iterator - Integer",
+                "Implicit Iterator - Decimal",
+                "Implicit Iterator - Array",
+                "Implicit Iterator - HTML Escaping",
+                "Implicit Iterator - Triple mustache",
+                "Implicit Iterator - Ampersand",
+                "Dotted Names - Broken Chains",
+                "Variable test",
+            ].includes(name)),
+        outPath: "./tests/TypesafeUnitTests/Sections.elm",
+        moduleName: "TypesafeUnitTests.Sections",
+    },
+]
+
+function readSpec(specPath) {
+    const str = fs.readFileSync(path.join(process.cwd(), specPath))
+    const json = JSON.parse(str)
+    return json["tests"]
+}
+
+for (let {tests, outPath, moduleName} of specs) {
+    let s = ""
+    for (let line of elmMustache._makeModule(moduleName, "typesafe", tests, true)) {
+      s = s + line
+    }
+    fs.writeFileSync(outPath, s)
+}

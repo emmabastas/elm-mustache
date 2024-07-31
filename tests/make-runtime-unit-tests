@@ -1,0 +1,175 @@
+#! /usr/bin/env node
+
+const fs = require("fs")
+const path = require("path")
+const elmMustache = require("..")
+
+const specs = [
+    {
+        tests: readSpec("./tests/specs/interpolation.json"),
+        outPath: "./tests/RuntimeUnitTests/Interpolation.elm",
+        moduleName: "RuntimeUnitTests.Interpolation",
+    },
+    {
+        tests: readSpec("./tests/specs/inverted.json")
+            .filter(({name}) => ![
+                "Standalone Line Endings",
+            ].includes(name)),
+        outPath: "./tests/RuntimeUnitTests/Inverted.elm",
+        moduleName: "RuntimeUnitTests.Inverted",
+    },
+    {
+        tests: readSpec("./tests/specs/comments.json")
+            .filter(({name}) => ![
+                "Standalone Line Endings",
+            ].includes(name)),
+        outPath: "./tests/RuntimeUnitTests/Comments.elm",
+        moduleName: "RuntimeUnitTests.Comments",
+    },
+    {
+        tests: readSpec("./tests/specs/delimiters.json")
+            .filter(({ name }) => ![
+                "Partial Inheritence",
+                "Post-Partial Behavior",
+                "Standalone Line Endings",
+            ].includes(name)),
+        outPath: "./tests/RuntimeUnitTests/Delimiters.elm",
+        moduleName: "RuntimeUnitTests.Delimiters",
+    },
+    {
+        tests: readSpec("./tests/specs/sections.json")
+            .filter(({name}) => ![
+                "Standalone Line Endings",
+            ].includes(name)),
+        outPath: "./tests/RuntimeUnitTests/Sections.elm",
+        moduleName: "RuntimeUnitTests.Sections",
+    },
+]
+
+function readSpec(specPath) {
+    const str = fs.readFileSync(path.join(process.cwd(), specPath))
+    const json = JSON.parse(str)
+    return json["tests"]
+}
+
+for (let {tests, outPath, moduleName} of specs) {
+    let s = ""
+    for (let line of makeModule(moduleName, tests)) {
+      s = s + line
+    }
+    fs.writeFileSync(outPath, s)
+}
+
+function *makeModule(moduleName, tests) {
+    yield "module " + moduleName + " exposing (..)\n"
+        + "\n"
+        + "import Mustache exposing (render)\n"
+        + "import Test exposing (Test, test)\n"
+        + "import Expect exposing (equal)\n"
+        + "import Json.Decode exposing (Value)\n"
+        + "import Json.Encode as E\n"
+        + "\n"
+        + "makeTest : String -> String -> String -> Value -> String -> Test\n"
+        + "makeTest name desc template data expected =\n"
+        + "    test (name ++ \" — \" ++ desc) <|\n"
+        + "        \\_ ->\n"
+        + "        data\n"
+        + "        |> render template\n"
+        + "        |> equal (Ok expected)\n"
+        + "\n"
+
+    for (let i = 0; i < tests.length; i++) {
+        const test = tests[i]
+
+        yield "suite" + i + " : Test\n"
+            + "suite" + i + " = makeTest\n"
+            + "    " + elmMultilineString(test.name) + "\n"
+            + "    " + elmMultilineString(test.desc) + "\n"
+            + "    " + elmMultilineString(test.template) + "\n"
+            + "    " + elmJson(test.data, 4, true) + "\n"
+            + "    " + elmMultilineString(test.expected) + "\n"
+            + "\n"
+    }
+}
+
+
+function elmJson(data, indent, needsParen) {
+    if (data === null) {
+        return "E.null"
+    }
+    else if (data === true) {
+        return "(E.bool True)"
+    }
+    else if (data === false) {
+        return "(E.bool False)"
+    }
+    if (typeof data === "number" && Number.isInteger(data)) {
+        return "(E.int " + data + ")"
+    }
+    if (typeof data === "number" && !Number.isInteger(data)) {
+        return "(E.float " + data + ")"
+    }
+    if (typeof data === "string") {
+        return "(E.string " + elmMultilineString(data) + ")"
+    }
+    else if (typeof data === "object" && Array.isArray(data)) {
+        let whitespace = " ".repeat(indent)
+
+        const a = []
+        for (const elem of data) {
+            a.push(elmJson(elem, indent + 2, false))
+        }
+
+        if (a.length === 0) {
+            return "(E.list identity [])"
+        }
+        if (a.length === 1) {
+            return "(E.list identity [" + a[0] + "])"
+        }
+        return "(E.list identity [ " + a.join("\n" + whitespace + ", ") + "\n" + whitespace + "])"
+    }
+    else if (typeof data === "object") {
+        const whitespace = " ".repeat(indent)
+
+        const a = []
+        for (let key of keys(data)) {
+            a.push("( " + elmString(key) + "\n  " + whitespace + "  , " + elmJson(data[key], indent + 4, false) + "\n" + whitespace + "    )")
+        }
+
+        if (a.length === 0) {
+            return "(E.object [])"
+        }
+
+        return "(E.object\n" + whitespace + "  [ " + a.join("\n  " + whitespace + ", ") + "\n" + whitespace + "  ])"
+    }
+    else {
+      throw new Error("Can't make a " + typeof data + " into an Elm Value")
+    }
+}
+
+function elmString(s) {
+    return "\""
+        + s
+          .replaceAll("\\", "\\\\")
+          .replaceAll("\"", "\\\"")
+          .replaceAll("\n", "\\n")
+        + "\""
+}
+
+function elmMultilineString(s) {
+    return "\"\"\""
+        + s
+          .replaceAll("\\", "\\\\")
+          .replaceAll("\"", "\\\"")
+        + "\"\"\""
+}
+
+function keys(obj) {
+    const a = []
+    for (var key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            a.push(key)
+        }
+    }
+    return a
+}

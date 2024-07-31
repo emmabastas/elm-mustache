@@ -1,0 +1,34 @@
+{
+    "name": "elm-mustache",
+    "version": "0.1.0",
+    "description": "Mustache template specification in Elm",
+    "author": "Emma Bastås <emma.bastas@protonmail.com>",
+    "homepage": "https://github.com/emmabastas/elm-mustache",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/janl/mustache.js.git"
+    },
+    "keywords": [
+        "elm",
+        "mustache",
+        "template"
+    ],
+    "main": "elm-mustache.js",
+    "bin": {
+        "elm-mustache": "./bin/elm-mustache"
+    },
+    "files": [
+        "bin/elm-mustache",
+        "elm-mustache.js",
+        "package.json"
+    ],
+    "scripts": {},
+    "dependencies": {
+        "mustache": "^4.2.0"
+    },
+    "devDependencies": {
+        "elm": "^0.19.1-6",
+        "elm-test": "^0.19.1-revision12"
+    },
+    "license": "GPL-3.0"
+}

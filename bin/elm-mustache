@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+
+const elmMustache = require("../")
+const Mustache = require("mustache")
+const fs = require("fs")
+const path = require("path")
+
+function main() {
+    const argv = process.argv.slice(2)
+
+    if (argv.includes("--help")) {
+        printUsage()
+        return 0
+    }
+
+    if (argv.includes("--version")) {
+        console.log(require("../package").version)
+        return 0
+    }
+
+    const [flags, positionals] = partition(e => e.startsWith("--"), argv)
+
+    let type
+    if (flags.length === 0) {
+        type = "typesafe"
+    } else if (JSON.stringify(flags) == JSON.stringify(["--full"])) {
+        type = "full"
+    } else {
+        console.log("Unknown flags: " + flags.filter(e => e != "--full").join(" "))
+        console.log("")
+        printUsage()
+        return -1
+    }
+
+    if (positionals.length !== 3) {
+        console.log("Expected two positional arguments:")
+        console.log("1) path to template")
+        console.log("2) output path")
+        console.log("3) module name")
+        console.log("")
+        printUsage()
+        return -1
+    }
+
+    const [templatePath, outputPath, moduleName] = argv
+
+    const templatePath_ = path.join(process.cwd(), templatePath)
+
+    try {
+        var templateStr = fs.readFileSync(templatePath_, "utf8")
+    } catch (e) {
+        console.log("An error occured when trying to read the contents")
+        console.log("of the template at: " + templatePath_)
+        console.log("")
+        console.log("The error was:")
+        console.log(e.message)
+    }
+
+    const templateAst = Mustache.parse(templateStr)
+
+    let rendered = ""
+    if (type === "typesafe") {
+        rendered = elmMustache.makeTypesafeModule(moduleName, templateAst)
+    } else {
+        rendered = elmMustache.makeFullModule(moduleName, templateAst)
+    }
+
+    const outputPath_ = path.join(process.cwd(), outputPath)
+    try {
+        fs.writeFileSync(outputPath_, rendered, "utf8")
+    } catch (e) {
+        console.log("An error occured when trying to write the")
+        console.log("generated Elm module to: " + outputPath_)
+        console.log("")
+        console.log("The error was:")
+        console.log(e.message)
+    }
+
+    return 0
+}
+
+function printUsage() {
+    console.log("Usage: elm-mustache [options]... <template> <output> <module name>")
+    console.log("")
+    console.log("Options:")
+    console.log("  --full    Generate a renderer that accept a Json.Value")
+    console.log("            instead of a custom type.")
+    console.log("  --help    Print this message")
+    console.log("  --version Version information")
+}
+
+function partition(f, l) {
+    return [l.filter(e => f(e)), l.filter(e => !f(e))]
+}
+
+process.exit(main())
