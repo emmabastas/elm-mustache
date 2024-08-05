@@ -130,12 +130,14 @@ parse template = run parser ("\n" ++ template)
    work for some reason..
  -}
 
+{-| Once a template has been parsed with `parse` it can be rendered with this function.
+-}
 renderParsed : Ast -> Value -> String
 renderParsed ast hash =
     renderAst ast [hash]
     |> (\s -> String.slice 1 (String.length s) s)
 
-{-| This is probably the one function you'll want to use. Expects a mustache template string and a Json object to use as a hash.
+{-| This is probably the one function you'll want to use. Expects a mustache template string and a JSON object to use as a hash.
 -}
 render : String -> Value -> Result (List DeadEnd) String
 render template hash =
@@ -766,7 +768,7 @@ renderSomeSection { sectionName, toplevel, context, s, ss, subsection, postWhite
     in
     first ++ second ++ renderAst_ toplevel xs context
 
-{-| Escape the special html character '&', '\"', '<' and '>'. This function is used when rendering values in normal variable tags.
+{-| Escape the special HTML characters `&`, `"`, `<` and `>`. This function is used when rendering values in normal variable tags.
 -}
 htmlEscape : String -> String
 htmlEscape s =
