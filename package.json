@@ -1,6 +1,6 @@
 {
     "name": "elm-mustache",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "description": "Mustache template specification in Elm",
     "author": "Emma Bastås <emma.bastas@protonmail.com>",
     "homepage": "https://github.com/emmabastas/elm-mustache",
