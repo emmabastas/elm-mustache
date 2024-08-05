@@ -6,7 +6,7 @@
     "homepage": "https://github.com/emmabastas/elm-mustache",
     "repository": {
         "type": "git",
-        "url": "https://github.com/janl/mustache.js.git"
+        "url": "https://github.com/emmabastas/elm-mustache.git"
     },
     "keywords": [
         "elm",
