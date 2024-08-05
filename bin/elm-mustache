@@ -42,7 +42,7 @@ function main() {
         return -1
     }
 
-    const [templatePath, outputPath, moduleName] = argv
+    const [templatePath, outputPath, moduleName] = positionals
 
     const templatePath_ = path.join(process.cwd(), templatePath)
 
