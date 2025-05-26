@@ -238,6 +238,9 @@ type AstNode
         , postWhitespace : String
         , subsectionPreWhitespace : String
         }
+    | Partial
+        { name : Name
+        }
     -- The `Comment` and `SetDelimiter` tags don't look like they carry any
     -- information in the AST. However, `renderAst_` uses them to remove
     -- newlines where a user would expect them to be removed (standalone tags).
@@ -288,7 +291,7 @@ leaveSection leaveName postWhitespace state =
                have different names:
                {{# section }}
                   foo
-               {{/ sectoin }}
+               {{/ section }}
 
                What should we do in this situation? For now, we just pretend the the
                Names actually do match up
@@ -334,6 +337,10 @@ parser_ initialState =
 
                             Just (VariableTag x) ->
                                 addNode (Variable x) state
+                                |> succeed
+
+                            Just (PartialTag x) ->
+                                addNode (Partial x) state
                                 |> succeed
 
                             Just (SectionStart sectionName) ->
@@ -451,6 +458,7 @@ type Tag
         { name : Name
         , escapeHtml : Bool
         }
+    | PartialTag { name : Name }
     | SectionStart Name
     | InvertedSectionStart Name
     | SectionEnd Name
@@ -478,7 +486,7 @@ tag delim =
                     )
                     (token "{")
                 else
-                    problem "Tripple mustache no supported with custom delimiters"
+                    problem "Triple mustache no supported with custom delimiters"
             -- {{& }}
             , andThen
                 (\_ ->
@@ -518,7 +526,16 @@ tag delim =
                 )
                 (token "/")
             -- {{> }}
-            , andThen (\_ -> problem "Partials are not supported >") (token ">")
+            , andThen
+                (\_ ->
+                    tagName delim.right
+                    |. token delim.right
+                    |> map
+                        (\variableName ->
+                            Just <| PartialTag { name = variableName }
+                        )
+                )
+                (token ">")
             -- {{! }}
             , andThen
                 (\_ ->
@@ -689,6 +706,11 @@ renderAst_ toplevel ast context =
             interpolate (lookup context r.name)
             |> (if r.escapeHtml then htmlEscape else (\s -> s))
             |> (\s -> s ++ renderAst_ toplevel xs context)
+
+        -- PARTIAL
+
+        Partial r :: xs ->
+            "TODO" -- TODO
 
         -- These patterns should never match
 
