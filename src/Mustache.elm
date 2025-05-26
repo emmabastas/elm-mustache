@@ -50,6 +50,7 @@
 
 module Mustache exposing
     ( Ast
+    , Context
     , render
     , parse
     , renderParsed
@@ -66,7 +67,7 @@ module Mustache exposing
 @docs Ast, render, parse, renderParsed
 
 # Niche usecases
-@docs htmlEscape, lookup, interpolate, section, invertedSection
+@docs htmlEscape, Context, lookup, interpolate, section, invertedSection
 -}
 
 import Json.Decode as D exposing (Value)
@@ -191,6 +192,8 @@ name s =
         "." -> []
         _   -> String.split "." s
 
+{-| The *context* is a list of *hashes* (both of these terms are specified in the mustache specification) with the head of the list being the innermost hash.
+-}
 type alias Context = List Value
 
 {- All of the `postWhitespace` and `subsectionPreWhitespace` fields are used
