@@ -26,16 +26,14 @@ const specs = [
         outPath: "./tests/RuntimeUnitTests/Comments.elm",
         moduleName: "RuntimeUnitTests.Comments",
     },
-    {
-        tests: readSpec("./tests/specs/delimiters.json")
-            .filter(({ name }) => ![
-                "Partial Inheritence",
-                "Post-Partial Behavior",
-                "Standalone Line Endings",
-            ].includes(name)),
-        outPath: "./tests/RuntimeUnitTests/Delimiters.elm",
-        moduleName: "RuntimeUnitTests.Delimiters",
-    },
+    //{
+    //    tests: readSpec("./tests/specs/delimiters.json")
+    //        .filter(({ name }) => ![
+    //            "Standalone Line Endings",
+    //        ].includes(name)),
+    //    outPath: "./tests/RuntimeUnitTests/Delimiters.elm",
+    //    moduleName: "RuntimeUnitTests.Delimiters",
+    //},
     {
         tests: readSpec("./tests/specs/sections.json")
             .filter(({name}) => ![
@@ -43,6 +41,11 @@ const specs = [
             ].includes(name)),
         outPath: "./tests/RuntimeUnitTests/Sections.elm",
         moduleName: "RuntimeUnitTests.Sections",
+    },
+    {
+        tests: readSpec("./tests/specs/partials.json"),
+        outPath: "./tests/RuntimeUnitTests/Partials.elm",
+        moduleName: "RuntimeUnitTests.Partials",
     },
 ]
 
@@ -86,12 +89,19 @@ function *makeModule(moduleName, tests) {
             + "    " + elmMultilineString(test.name) + "\n"
             + "    " + elmMultilineString(test.desc) + "\n"
             + "    " + elmMultilineString(test.template) + "\n"
-            + "    " + elmJson(test.data, 4, true) + "\n"
+            + "    " + elmTestData(test) + "\n"
             + "    " + elmMultilineString(test.expected) + "\n"
             + "\n"
     }
 }
 
+function elmTestData(test) {
+    if (typeof test.partials === "undefined") {
+        return elmJson(test.data, 4, true)
+    } else {
+        return elmJson({...test.data, ...test.partials}, 4, true)
+    }
+}
 
 function elmJson(data, indent, needsParen) {
     if (data === null) {
