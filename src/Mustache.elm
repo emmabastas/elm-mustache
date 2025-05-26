@@ -784,7 +784,7 @@ htmlEscape s =
 -- The functions bellow are all about finding the appropriate string
 -- to insert into a template "hole" based off of the current context.
 
-{-| Given a context stack, lookup a value in that stack. The lookup rules follows the ones outlined in the mustache specification.
+{-| Given a *context*, lookup a value in it. The lookup rules follows the ones outlined in the mustache specification.
 -}
 lookup : Context -> Name -> Maybe Value
 lookup context variableName = case (context, variableName) of
