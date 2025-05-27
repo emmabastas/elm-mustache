@@ -749,10 +749,24 @@ renderAst_ toplevel ast context =
                 -- is a string.
                 Just (Ok partialSource) ->
                     let
+                        lines = String.split "\n" partialSource
                         indentedPartialSource =
-                            partialSource
-                            |> String.split "\n"
-                            |> String.join ("\n" ++ String.repeat r.indentation " ")
+                            case lines of
+                                [] ->
+                                    ""
+
+                                l :: [] ->
+                                    l
+
+                                l :: ls ->
+                                    ls
+                                    |> List.map (\s ->
+                                        if s == "" then
+                                            ""
+                                        else
+                                            String.repeat r.indentation " " ++ s)
+                                    |> String.join "\n"
+                                    |> \s -> l ++ "\n" ++ s
                     in
                     case parse indentedPartialSource of
                         -- The partial is a valid mustache template.
