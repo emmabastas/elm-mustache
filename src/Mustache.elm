@@ -238,6 +238,11 @@ type AstNode
         , postWhitespace : String
         , subsectionPreWhitespace : String
         }
+    | Partial
+        { name : Name
+        , indentation : Int
+        , postWhitespace : String
+        }
     -- The `Comment` and `SetDelimiter` tags don't look like they carry any
     -- information in the AST. However, `renderAst_` uses them to remove
     -- newlines where a user would expect them to be removed (standalone tags).
@@ -288,7 +293,7 @@ leaveSection leaveName postWhitespace state =
                have different names:
                {{# section }}
                   foo
-               {{/ sectoin }}
+               {{/ section }}
 
                What should we do in this situation? For now, we just pretend the the
                Names actually do match up
@@ -335,6 +340,42 @@ parser_ initialState =
                             Just (VariableTag x) ->
                                 addNode (Variable x) state
                                 |> succeed
+
+                            Just (PartialTag partialName) ->
+                                let
+                                    indentation = case state.current of
+                                        {- In order for indentation to be relevant
+                                           we need to partial tag to be preceeded
+                                           by one whole line containing only spaces.
+                                           `Text [s] :: _` means that some other tag
+                                           is on the same line, so instead we need
+                                           `Text (s :: _ :: _) :: _`
+                                        -}
+                                        Text (s :: _ :: _) :: _ ->
+                                            if String.all ((==) ' ') s then
+                                                String.length s
+                                            else
+                                                0
+
+                                        _ ->
+                                            0
+                                in
+                                chompWhile ((==) ' ')
+                                |. oneOf
+                                    [ token "\n"
+                                    , succeed ()
+                                    ]
+                                |> mapChompedString
+                                    (\s _ ->
+                                        addNode
+                                            (Partial
+                                                { name = partialName
+                                                , indentation = indentation
+                                                , postWhitespace = s
+                                                }
+                                            )
+                                            state
+                                    )
 
                             Just (SectionStart sectionName) ->
                                 chompWhile ((==) ' ')
@@ -451,6 +492,7 @@ type Tag
         { name : Name
         , escapeHtml : Bool
         }
+    | PartialTag Name
     | SectionStart Name
     | InvertedSectionStart Name
     | SectionEnd Name
@@ -478,7 +520,7 @@ tag delim =
                     )
                     (token "{")
                 else
-                    problem "Tripple mustache no supported with custom delimiters"
+                    problem "Triple mustache no supported with custom delimiters"
             -- {{& }}
             , andThen
                 (\_ ->
@@ -518,7 +560,16 @@ tag delim =
                 )
                 (token "/")
             -- {{> }}
-            , andThen (\_ -> problem "Partials are not supported >") (token ">")
+            , andThen
+                (\_ ->
+                    tagName delim.right
+                    |. token delim.right
+                    |> map
+                        (\partialName ->
+                            Just <| PartialTag partialName
+                        )
+                )
+                (token ">")
             -- {{! }}
             , andThen
                 (\_ ->
@@ -689,6 +740,56 @@ renderAst_ toplevel ast context =
             interpolate (lookup context r.name)
             |> (if r.escapeHtml then htmlEscape else (\s -> s))
             |> (\s -> s ++ renderAst_ toplevel xs context)
+
+        -- PARTIAL
+
+        Partial r :: xs ->
+            (case lookup context r.name |> Maybe.map (D.decodeValue D.string) of
+                -- The partial key has corresponding data in the context, and it
+                -- is a string.
+                Just (Ok partialSource) ->
+                    let
+                        lines = String.split "\n" partialSource
+                        indentedPartialSource =
+                            case lines of
+                                [] ->
+                                    ""
+
+                                l :: [] ->
+                                    l
+
+                                l :: ls ->
+                                    ls
+                                    |> List.map (\s ->
+                                        if s == "" then
+                                            ""
+                                        else
+                                            String.repeat r.indentation " " ++ s)
+                                    |> String.join "\n"
+                                    |> \s -> l ++ "\n" ++ s
+                    in
+                    case parse indentedPartialSource of
+                        -- The partial is a valid mustache template.
+                        Ok partialAst ->
+                            renderAst partialAst context
+                            |> (\s -> String.slice 1 (String.length s) s)
+                            |> E.string
+                            |> Just
+                        -- The partial is not a valid mustache template.
+                        Err _ ->
+                            Nothing
+                -- The partial key has corresponding data in the the context, but
+                -- it's not a string. What should we do?
+                Just (Err _) -> Nothing
+                -- The partial key has no corresponding data in the context.
+                Nothing -> Nothing
+            )
+            |> interpolate
+            |> \s ->
+                if r.indentation /= 0 && String.endsWith "\n" r.postWhitespace then
+                    s ++ renderAst_ toplevel xs context
+                else
+                    s ++ r.postWhitespace ++ renderAst_ toplevel xs context
 
         -- These patterns should never match
 

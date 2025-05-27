@@ -80,7 +80,7 @@ Hello Pluto!
 
 This is not possible with the typesafe version
 
-## Why is can't the typesafe version deal with lists?
+## Why can't the typesafe version deal with lists?
 
 When presented with the template
 
@@ -123,7 +123,7 @@ or something in between.
 | inverted section                    | ✅             | ✅                    | ✅          |
 | set delimiters                      | ✅             | ✅                    | ✅          |
 | lambdas                             | ❌             | ❌                    | ❌          |
-| partials                            | ❌             | ❌                    | ❌          |
+| partials                            | ❌             | ❌                    | ✅          |
 | inheritance                         | ❌             | ❌                    | ❌          |
 | dynamic names                       | ❌             | ❌                    | ❌          |
 | respects `\r\n`-style line endings? | ✅             | ✅                    | ❌          |

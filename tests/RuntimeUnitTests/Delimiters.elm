@@ -108,14 +108,53 @@ suite3 = makeTest
 
 suite4 : Test
 suite4 = makeTest
+    """Partial Inheritence"""
+    """Delimiters set in a parent template should not affect a partial."""
+    """[ {{>include}} ]
+{{= | | =}}
+[ |>include| ]
+"""
+    (E.object
+      [ ( "value"
+        , (E.string """yes""")
+        )
+      , ( "include"
+        , (E.string """.{{value}}.""")
+        )
+      ])
+    """[ .yes. ]
+[ .yes. ]
+"""
+
+suite5 : Test
+suite5 = makeTest
+    """Post-Partial Behavior"""
+    """Delimiters set in a partial should not affect the parent template."""
+    """[ {{>include}} ]
+[ .{{value}}.  .|value|. ]
+"""
+    (E.object
+      [ ( "value"
+        , (E.string """yes""")
+        )
+      , ( "include"
+        , (E.string """.{{value}}. {{= | | =}} .|value|.""")
+        )
+      ])
+    """[ .yes.  .yes. ]
+[ .yes.  .|value|. ]
+"""
+
+suite6 : Test
+suite6 = makeTest
     """Surrounding Whitespace"""
     """Surrounding whitespace should be left untouched."""
     """| {{=@ @=}} |"""
     (E.object [])
     """|  |"""
 
-suite5 : Test
-suite5 = makeTest
+suite7 : Test
+suite7 = makeTest
     """Outlying Whitespace (Inline)"""
     """Whitespace should be left untouched."""
     """ | {{=@ @=}}
@@ -124,8 +163,8 @@ suite5 = makeTest
     """ | 
 """
 
-suite6 : Test
-suite6 = makeTest
+suite8 : Test
+suite8 = makeTest
     """Standalone Tag"""
     """Standalone lines should be removed from the template."""
     """Begin.
@@ -137,8 +176,8 @@ End.
 End.
 """
 
-suite7 : Test
-suite7 = makeTest
+suite9 : Test
+suite9 = makeTest
     """Indented Standalone Tag"""
     """Indented standalone lines should be removed from the template."""
     """Begin.
@@ -150,8 +189,8 @@ End.
 End.
 """
 
-suite8 : Test
-suite8 = makeTest
+suite10 : Test
+suite10 = makeTest
     """Standalone Without Previous Line"""
     """Standalone tags should not require a newline to precede them."""
     """  {{=@ @=}}
@@ -159,8 +198,8 @@ suite8 = makeTest
     (E.object [])
     """="""
 
-suite9 : Test
-suite9 = makeTest
+suite11 : Test
+suite11 = makeTest
     """Standalone Without Newline"""
     """Standalone tags should not require a newline to follow them."""
     """=
@@ -169,8 +208,8 @@ suite9 = makeTest
     """=
 """
 
-suite10 : Test
-suite10 = makeTest
+suite12 : Test
+suite12 = makeTest
     """Pair with Padding"""
     """Superfluous in-tag whitespace should be ignored."""
     """|{{= @   @ =}}|"""
