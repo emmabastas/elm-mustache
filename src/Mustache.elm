@@ -710,7 +710,28 @@ renderAst_ toplevel ast context =
         -- PARTIAL
 
         Partial r :: xs ->
-            "TODO" -- TODO
+            (case lookup context r.name |> Maybe.map (D.decodeValue D.string) of
+                -- The partial key has corresponding data in the context, and it
+                -- is a string.
+                Just (Ok partialSource) ->
+                    case parse partialSource of
+                        -- The partial is a valid mustache template.
+                        Ok partialAst ->
+                            renderAst partialAst context
+                            |> (\s -> String.slice 1 (String.length s) s)
+                            |> E.string
+                            |> Just
+                        -- The partial is not a valid mustache template.
+                        Err _ ->
+                            Nothing
+                -- The partial key has corresponding data in the the context, but
+                -- it's not a string. What should we do?
+                Just (Err _) -> Nothing
+                -- The partial key has no corresponding data in the context.
+                Nothing -> Nothing
+            )
+            |> interpolate
+            |> (\s -> s ++ renderAst_ toplevel xs context)
 
         -- These patterns should never match
 
