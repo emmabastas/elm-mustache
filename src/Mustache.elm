@@ -66,6 +66,39 @@ module Mustache exposing
 # Parse and render
 @docs Ast, render, parse, renderParsed
 
+# Partials
+
+A string can be used as the template in a partial tag
+
+    import Json.Encode as E
+
+    template : String
+    template = """
+    <h2>Names</h2>
+    {{#names}}
+        {{> user}}
+    {{/names}}
+    """
+
+    partial : String
+    partial = "<strong>{{.}}</strong>"
+
+    render template
+        ( E.object
+            [ ("names", E.list E.string [ "Alice", "Bob" ])
+            , ("user", E.string partial)
+            ]
+        )
+    --> [ ""
+    --> , "<h2>Names</h2>"
+    --> , "    <strong>Alice</strong>"
+    --> , "    <strong>Bob</strong>"
+    --> , ""
+    --> , ""
+    --> ]
+    --> |> String.join "\n"
+    --> |> Ok
+
 # Niche usecases
 @docs htmlEscape, Context, lookup, interpolate, section, invertedSection
 -}
@@ -132,6 +165,16 @@ parse template = run parser ("\n" ++ template)
  -}
 
 {-| Once a template has been parsed with `parse` it can be rendered with this function.
+
+    import Json.Encode as E
+
+    ast : Ast
+    ast = parse "Hello, {{.}}!" |> Result.withDefault []
+
+    renderParsed ast (E.string "Pluto")  --> "Hello, Pluto!"
+
+    renderParsed ast (E.string "Mercury")  --> "Hello, Mercury!"
+
 -}
 renderParsed : Ast -> Value -> String
 renderParsed ast hash =
@@ -139,6 +182,10 @@ renderParsed ast hash =
     |> (\s -> String.slice 1 (String.length s) s)
 
 {-| This is probably the one function you'll want to use. Expects a mustache template string and a JSON object to use as a hash.
+
+    import Json.Encode as E
+
+    render "Hello, {{world}}!" (E.object [("world", E.string "Pluto")])  --> Ok "Hello, Pluto!"
 -}
 render : String -> Value -> Result (List DeadEnd) String
 render template hash =
