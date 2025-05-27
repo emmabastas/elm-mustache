@@ -139,12 +139,19 @@ Feel free to email me or open an issue.
 
 # TODOs
 
-This package isn't immensely high-quality, hopefully it can get the job done for you. Some things that could be nice:
+**Nice-to-haves**
+- [ ] `elm-codegen` generators to replace the CLI tool (in a separate package)
+- [ ] Fuzzy tests.
 
-- Integration tests for the CLI tool
-- Make a `elm-codegen` generator to replace the CLI tool
-- Use `Parser.Advanced` to provide useful error messages and fault-tolerant parsing.
-- Unit tests pertaining to weird variable names
+**v2.0.0 roadmap**
+- [ ] Use `Parser.Advanced` to provide useful error messages
+- [ ] Fault-tolerant parsing -- always return a parsed template, along with a list of eventual parse errors.
+    - [ ] What does the spec say about error recovery in parsing?
+- [ ] Figure out what the rendering strategy is -- Right now, missing keys and so on are silently rendered as empty strings, either be explicit about this or do something else.
+- [ ] Respect `\r\n`-style line endings.
+- [ ] Use a `Hash` type instead of `Json.Value`.
+- [ ] The `Context` Type is some sort of tree zipper, not a stack (make impossible state impossible.)
+- [ ] Make the implementation be more along the make-impossible-states-impossible philosophy.
 
 # License
 
