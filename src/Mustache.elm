@@ -341,7 +341,7 @@ parser_ initialState =
                                 addNode (Variable x) state
                                 |> succeed
 
-                            Just (PartialTag x) ->
+                            Just (PartialTag partialName) ->
                                 let
                                     indentation = case state.current of
                                         {- In order for indentation to be relevant
@@ -369,7 +369,7 @@ parser_ initialState =
                                     (\s _ ->
                                         addNode
                                             (Partial
-                                                { name = x.name
+                                                { name = partialName
                                                 , indentation = indentation
                                                 , postWhitespace = s
                                                 }
@@ -492,7 +492,7 @@ type Tag
         { name : Name
         , escapeHtml : Bool
         }
-    | PartialTag { name : Name }
+    | PartialTag Name
     | SectionStart Name
     | InvertedSectionStart Name
     | SectionEnd Name
@@ -565,8 +565,8 @@ tag delim =
                     tagName delim.right
                     |. token delim.right
                     |> map
-                        (\variableName ->
-                            Just <| PartialTag { name = variableName }
+                        (\partialName ->
+                            Just <| PartialTag partialName
                         )
                 )
                 (token ">")
