@@ -240,6 +240,8 @@ type AstNode
         }
     | Partial
         { name : Name
+        , indentation : Int
+        , postWhitespace : String
         }
     -- The `Comment` and `SetDelimiter` tags don't look like they carry any
     -- information in the AST. However, `renderAst_` uses them to remove
@@ -340,8 +342,40 @@ parser_ initialState =
                                 |> succeed
 
                             Just (PartialTag x) ->
-                                addNode (Partial x) state
-                                |> succeed
+                                let
+                                    indentation = case state.current of
+                                        {- In order for indentation to be relevant
+                                           we need to partial tag to be preceeded
+                                           by one whole line containing only spaces.
+                                           `Text [s] :: _` means that some other tag
+                                           is on the same line, so instead we need
+                                           `Text (s :: _ :: _) :: _`
+                                        -}
+                                        Text (s :: _ :: _) :: _ ->
+                                            if String.all ((==) ' ') s then
+                                                String.length s
+                                            else
+                                                0
+
+                                        _ ->
+                                            0
+                                in
+                                chompWhile ((==) ' ')
+                                |. oneOf
+                                    [ token "\n"
+                                    , succeed ()
+                                    ]
+                                |> mapChompedString
+                                    (\s _ ->
+                                        addNode
+                                            (Partial
+                                                { name = x.name
+                                                , indentation = indentation
+                                                , postWhitespace = s
+                                                }
+                                            )
+                                            state
+                                    )
 
                             Just (SectionStart sectionName) ->
                                 chompWhile ((==) ' ')
@@ -714,7 +748,13 @@ renderAst_ toplevel ast context =
                 -- The partial key has corresponding data in the context, and it
                 -- is a string.
                 Just (Ok partialSource) ->
-                    case parse partialSource of
+                    let
+                        indentedPartialSource =
+                            partialSource
+                            |> String.split "\n"
+                            |> String.join ("\n" ++ String.repeat r.indentation " ")
+                    in
+                    case parse indentedPartialSource of
                         -- The partial is a valid mustache template.
                         Ok partialAst ->
                             renderAst partialAst context
@@ -731,7 +771,11 @@ renderAst_ toplevel ast context =
                 Nothing -> Nothing
             )
             |> interpolate
-            |> (\s -> s ++ renderAst_ toplevel xs context)
+            |> \s ->
+                if r.indentation /= 0 && String.endsWith "\n" r.postWhitespace then
+                    s ++ renderAst_ toplevel xs context
+                else
+                    s ++ r.postWhitespace ++ renderAst_ toplevel xs context
 
         -- These patterns should never match
 
