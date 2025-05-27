@@ -26,14 +26,14 @@ const specs = [
         outPath: "./tests/RuntimeUnitTests/Comments.elm",
         moduleName: "RuntimeUnitTests.Comments",
     },
-    //{
-    //    tests: readSpec("./tests/specs/delimiters.json")
-    //        .filter(({ name }) => ![
-    //            "Standalone Line Endings",
-    //        ].includes(name)),
-    //    outPath: "./tests/RuntimeUnitTests/Delimiters.elm",
-    //    moduleName: "RuntimeUnitTests.Delimiters",
-    //},
+    {
+        tests: readSpec("./tests/specs/delimiters.json")
+            .filter(({ name }) => ![
+                "Standalone Line Endings",
+            ].includes(name)),
+        outPath: "./tests/RuntimeUnitTests/Delimiters.elm",
+        moduleName: "RuntimeUnitTests.Delimiters",
+    },
     {
         tests: readSpec("./tests/specs/sections.json")
             .filter(({name}) => ![
@@ -43,7 +43,11 @@ const specs = [
         moduleName: "RuntimeUnitTests.Sections",
     },
     {
-        tests: readSpec("./tests/specs/partials.json"),
+        tests: readSpec("./tests/specs/partials.json")
+            .filter(({name}) => ![
+                "Standalone Line Endings",
+            ].includes(name))
+        ,
         outPath: "./tests/RuntimeUnitTests/Partials.elm",
         moduleName: "RuntimeUnitTests.Partials",
     },

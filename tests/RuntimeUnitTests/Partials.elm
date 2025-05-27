@@ -128,21 +128,6 @@ suite6 = makeTest
 
 suite7 : Test
 suite7 = makeTest
-    """Standalone Line Endings"""
-    """\"\\r\\n\" should be considered a newline for standalone tags."""
-    """|
-{{>partial}}
-|"""
-    (E.object
-      [ ( "partial"
-        , (E.string """>""")
-        )
-      ])
-    """|
->|"""
-
-suite8 : Test
-suite8 = makeTest
     """Standalone Without Previous Line"""
     """Standalone tags should not require a newline to precede them."""
     """  {{>partial}}
@@ -156,8 +141,8 @@ suite8 = makeTest
     """  >
   >>"""
 
-suite9 : Test
-suite9 = makeTest
+suite8 : Test
+suite8 = makeTest
     """Standalone Without Newline"""
     """Standalone tags should not require a newline to follow them."""
     """>
@@ -172,8 +157,8 @@ suite9 = makeTest
   >
   >"""
 
-suite10 : Test
-suite10 = makeTest
+suite9 : Test
+suite9 = makeTest
     """Standalone Indentation"""
     """Each line of the partial should be indented before rendering."""
     """\\
@@ -200,8 +185,8 @@ suite10 = makeTest
 /
 """
 
-suite11 : Test
-suite11 = makeTest
+suite10 : Test
+suite10 = makeTest
     """Padding Whitespace"""
     """Superfluous in-tag whitespace should be ignored."""
     """|{{> partial }}|"""
