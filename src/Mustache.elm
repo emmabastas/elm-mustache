@@ -301,8 +301,6 @@ type AstNode
         { postWhitespace : String
         }
 
-type TextNode = TextNode String (List String)
-
 {- PARSING
    Here we are concerned only with how to turn a template string
    into an AST.
@@ -364,12 +362,12 @@ leaveSection leaveName postWhitespace state =
 
 parser : Parser Ast
 parser =
-    text { left = "{{", right = "}}" }
+    textNode { left = "{{", right = "}}" }
     |> andThen
-        (\(s, ss) ->
+        (\tn ->
             parser_
                 { stack = []
-                , current = [Text (TextNode s ss)]
+                , current = [Text tn]
                 , delim = { left = "{{", right = "}}" }
                 }
         )
@@ -507,8 +505,8 @@ parser_ initialState =
                       )
                   |> andThen
                       (\newState ->
-                          succeed (\(s, ss) -> Loop (addNode (Text (TextNode s ss)) newState))
-                          |= text newState.delim
+                          succeed (\tn -> Loop (addNode (Text tn) newState))
+                          |= textNode newState.delim
                       )
                   |> backtrackable
                 , succeed ()
@@ -522,20 +520,35 @@ parser_ initialState =
                             Done (addNode (Text (TextNode s [])) state))
                 ])
 
-text : Delimiter -> Parser (String, List String)
-text delim =
+{-
+  Represents a pice of plain text broken into a head line and tail lines.
+  The head line is actually the last line of the text. So
+  "foo\nbar\nbaz" -> TextNode "baz" ["bar", "foo"]
+-}
+type TextNode = TextNode String (List String)
+
+endsInStandalone : TextNode -> Bool
+endsInStandalone (TextNode s _) = String.all ((==) ' ') s
+
+renderTextNode : TextNode -> String
+renderTextNode (TextNode s ss) = String.join "\n" (List.reverse (s :: ss))
+
+renderTextNodeTrimEnd : TextNode -> String
+renderTextNodeTrimEnd (TextNode _ ss) = String.join "\n" (List.reverse ss)
+
+textNode : Delimiter -> Parser TextNode
+textNode delim =
     chompUntilOneOf
-        [ map (always (\s -> succeed (s, []))) end
-        , map (always (\s -> succeed (s, []))) (lookAhead (token delim.left))
-        , map (always (\s -> text_ delim (String.slice 0 -2 s))) (token "\r\n")
-        , map (always (\s -> text_ delim (String.slice 0 -1 s))) (token "\n")
+        [ map (always (\s -> succeed (TextNode s []))) end
+        , map (always (\s -> succeed (TextNode s []))) (lookAhead (token delim.left))
+        , map (always (\s -> textNode_ delim (String.slice 0 -2 s))) (token "\r\n")
+        , map (always (\s -> textNode_ delim (String.slice 0 -1 s))) (token "\n")
         ]
-        |> mapChompedString
-            (\s f -> f s)
+        |> mapChompedString (\s f -> f s)
         |> andThen (\a -> a)
 
-text_ : Delimiter -> String -> Parser (String, List String)
-text_ delim head_ =
+textNode_ : Delimiter -> String -> Parser TextNode
+textNode_ delim head_ =
     loop (head_, [])
         (\(head, tail) ->
             chompUntilOneOf
@@ -544,9 +557,9 @@ text_ delim head_ =
                 , map (always (\s -> Loop (String.slice 0 -2 s, head :: tail))) (token "\r\n")
                 , map (always (\s -> Loop (String.slice 0 -1 s, head :: tail))) (token "\n")
                 ]
-                |> mapChompedString
-                    (\s f -> f s)
+                |> mapChompedString (\s f -> f s)
         )
+        |> map (\(head, tail) -> TextNode head tail)
 
 type Tag
     = VariableTag
@@ -716,37 +729,34 @@ renderAst_ toplevel ast context =
 
         -- COMMENT
 
-        Text (TextNode s ss) :: Comment r :: xs ->
+        Text tn :: Comment r :: xs ->
             renderCommentOrSetDelimiter
                 toplevel
                 context
-                s
-                ss
+                tn
                 r.postWhitespace
                 xs
 
         -- SET DELIMITER
 
-        Text (TextNode s ss) :: SetDelimiter r :: xs ->
+        Text tn :: SetDelimiter r :: xs ->
             renderCommentOrSetDelimiter
                 toplevel
                 context
-                s
-                ss
+                tn
                 r.postWhitespace
                 xs
 
         -- SECTION
 
-        Text (TextNode s ss) :: Section r :: xs ->
+        Text tn :: Section r :: xs ->
             case r.subsection of
                 Text (TextNode t tt) :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
                         , sectionName = r.name
-                        , s = s
-                        , ss = ss
+                        , tn = tn
                         , subsection =
                             { t = t
                             , tt = tt
@@ -765,15 +775,14 @@ renderAst_ toplevel ast context =
 
         -- INVERTED SECTION
 
-        Text (TextNode s ss) :: InvertedSection r :: xs ->
+        Text tn :: InvertedSection r :: xs ->
             case r.subsection of
                 Text (TextNode t tt) :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
                         , sectionName = r.name
-                        , s = s
-                        , ss = ss
+                        , tn = tn
                         , subsection =
                             { t = t
                             , tt = tt
@@ -862,26 +871,24 @@ renderAst_ toplevel ast context =
 renderCommentOrSetDelimiter :
     Bool
     -> Context
-    -> String
-    -> List String
+    -> TextNode
     -> String
     -> Ast
     -> String
-renderCommentOrSetDelimiter toplevel context s ss postWhitespace xs =
+renderCommentOrSetDelimiter toplevel context tn postWhitespace xs =
     let
-        preStandalone =
-            String.all ((==) ' ') s
+        preStandalone = endsInStandalone tn
 
         postStandalone =
             String.endsWith "\n" postWhitespace
             || xs == [Text (TextNode "" [])]
     in
     if preStandalone && postStandalone then
-        String.join "\n" (List.reverse ss)
+        renderTextNodeTrimEnd tn
         ++ "\n"
         ++ renderAst_ toplevel xs context
     else
-        String.join "\n" (List.reverse (s :: ss))
+        renderTextNode tn
         ++ postWhitespace
         ++ renderAst_ toplevel xs context
 
@@ -889,8 +896,7 @@ renderSomeSection :
     { toplevel : Bool
     , context : Context
     , sectionName : Name
-    , s : String
-    , ss : List String
+    , tn : TextNode
     , subsection :
         { t : String
         , tt : List String
@@ -901,11 +907,12 @@ renderSomeSection :
     , xs : Ast
     , renderSection : Context -> Name -> (Context -> String) -> String
     } -> String
-renderSomeSection { sectionName, toplevel, context, s, ss, subsection, postWhitespace, xs, renderSection } =
+renderSomeSection { sectionName, toplevel, context, tn, subsection, postWhitespace, xs, renderSection } =
     let
+        (TextNode _ ss) = tn
         { t, tt, ys, preWhitespace } = subsection
         openingTagStandalone =
-            String.all ((==) ' ') s
+            endsInStandalone tn
             && String.endsWith "\n" subsection.preWhitespace
         closingTagStandalone =
             List.length tt > 0
@@ -915,10 +922,10 @@ renderSomeSection { sectionName, toplevel, context, s, ss, subsection, postWhite
 
         first =
             if openingTagStandalone then
-                String.join "\n" (List.reverse ss)
+                renderTextNodeTrimEnd tn
                 ++ if ss == [] then "" else "\n"
             else
-                String.join "\n" (List.reverse (s :: ss))
+                renderTextNode tn
                 ++ subsection.preWhitespace
 
         second =
