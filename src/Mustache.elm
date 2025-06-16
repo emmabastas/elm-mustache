@@ -394,9 +394,9 @@ parser_ initialState =
                                         {- In order for indentation to be relevant
                                            we need to partial tag to be preceeded
                                            by one whole line containing only spaces.
-                                           `Text [s] :: _` means that some other tag
+                                           `TextNode s _` means that some other tag
                                            is on the same line, so instead we need
-                                           `Text (s :: _ :: _) :: _`
+                                           `(TextNode s (_ :: _)) :: _`
                                         -}
                                         Text (TextNode s (_ :: _)) :: _ ->
                                             if String.all ((==) ' ') s then
@@ -526,6 +526,12 @@ parser_ initialState =
   "foo\nbar\nbaz" -> TextNode "baz" ["bar", "foo"]
 -}
 type TextNode = TextNode String (List String)
+
+isEmpty : TextNode -> Bool
+isEmpty (TextNode head tail) = head == "" && tail == []
+
+emptyTextNode : TextNode
+emptyTextNode = TextNode "" []
 
 endsInStandalone : TextNode -> Bool
 endsInStandalone (TextNode s _) = String.all ((==) ' ') s
@@ -800,8 +806,8 @@ renderAst_ toplevel ast context =
 
         -- TEXT
 
-        Text (TextNode t tt) :: xs ->
-            String.join "\n" (List.reverse (t :: tt))
+        Text tn :: xs ->
+            renderTextNode tn
             |> (\s -> s ++ renderAst_ toplevel xs context)
 
         -- VARIABLE
@@ -881,7 +887,7 @@ renderCommentOrSetDelimiter toplevel context tn postWhitespace xs =
 
         postStandalone =
             String.endsWith "\n" postWhitespace
-            || xs == [Text (TextNode "" [])]
+            || xs == [Text emptyTextNode]
     in
     if preStandalone && postStandalone then
         renderTextNodeTrimEnd tn
@@ -918,7 +924,7 @@ renderSomeSection { sectionName, toplevel, context, tn, subsection, postWhitespa
             List.length tt > 0
             && String.all ((==) ' ') t
             && (String.endsWith "\n" postWhitespace
-                || xs == [Text (TextNode "" [])])
+                || xs == [Text emptyTextNode])
 
         first =
             if openingTagStandalone then
