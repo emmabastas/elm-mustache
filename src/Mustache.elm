@@ -517,7 +517,7 @@ parser_ initialState =
                         if s == "" then
                             Done state
                         else
-                            Done (addNode (Text (TextNode s [])) state))
+                            Done (addNode (Text (singletonTextNode s)) state))
                 ])
 
 {-
@@ -533,6 +533,9 @@ isEmpty (TextNode head tail) = head == "" && tail == []
 emptyTextNode : TextNode
 emptyTextNode = TextNode "" []
 
+singletonTextNode : String -> TextNode
+singletonTextNode head = TextNode head []
+
 endsInStandalone : TextNode -> Bool
 endsInStandalone (TextNode s _) = String.all ((==) ' ') s
 
@@ -545,8 +548,8 @@ renderTextNodeTrimEnd (TextNode _ ss) = String.join "\n" (List.reverse ss)
 textNode : Delimiter -> Parser TextNode
 textNode delim =
     chompUntilOneOf
-        [ map (always (\s -> succeed (TextNode s []))) end
-        , map (always (\s -> succeed (TextNode s []))) (lookAhead (token delim.left))
+        [ map (always (\s -> succeed (singletonTextNode s))) end
+        , map (always (\s -> succeed (singletonTextNode s))) (lookAhead (token delim.left))
         , map (always (\s -> textNode_ delim (String.slice 0 -2 s))) (token "\r\n")
         , map (always (\s -> textNode_ delim (String.slice 0 -1 s))) (token "\n")
         ]
@@ -755,17 +758,16 @@ renderAst_ toplevel ast context =
 
         -- SECTION
 
-        Text tn :: Section r :: xs ->
+        Text outer :: Section r :: xs ->
             case r.subsection of
-                Text (TextNode t tt) :: ys ->
+                Text inner :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
                         , sectionName = r.name
-                        , tn = tn
+                        , preTextOuter = outer
                         , subsection =
-                            { t = t
-                            , tt = tt
+                            { preTextInner = inner
                             , ys = ys
                             , preWhitespace = r.subsectionPreWhitespace
                             }
@@ -781,17 +783,16 @@ renderAst_ toplevel ast context =
 
         -- INVERTED SECTION
 
-        Text tn :: InvertedSection r :: xs ->
+        Text outer :: InvertedSection r :: xs ->
             case r.subsection of
-                Text (TextNode t tt) :: ys ->
+                Text inner :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
                         , sectionName = r.name
-                        , tn = tn
+                        , preTextOuter = outer
                         , subsection =
-                            { t = t
-                            , tt = tt
+                            { preTextInner = inner
                             , ys = ys
                             , preWhitespace = r.subsectionPreWhitespace
                             }
@@ -902,10 +903,9 @@ renderSomeSection :
     { toplevel : Bool
     , context : Context
     , sectionName : Name
-    , tn : TextNode
+    , preTextOuter : TextNode
     , subsection :
-        { t : String
-        , tt : List String
+        { preTextInner : TextNode
         , ys : Ast
         , preWhitespace : String
         }
@@ -913,30 +913,40 @@ renderSomeSection :
     , xs : Ast
     , renderSection : Context -> Name -> (Context -> String) -> String
     } -> String
-renderSomeSection { sectionName, toplevel, context, tn, subsection, postWhitespace, xs, renderSection } =
+renderSomeSection { sectionName, toplevel, context, preTextOuter, subsection, postWhitespace, xs, renderSection } =
     let
-        (TextNode _ ss) = tn
-        { t, tt, ys, preWhitespace } = subsection
+        { preTextInner, ys, preWhitespace } = subsection
+        (TextNode _ ss) = preTextOuter
+        (TextNode t tt) = preTextInner
         openingTagStandalone =
-            endsInStandalone tn
+            endsInStandalone preTextOuter
             && String.endsWith "\n" subsection.preWhitespace
         closingTagStandalone =
             List.length tt > 0
-            && String.all ((==) ' ') t
+            && endsInStandalone preTextInner
             && (String.endsWith "\n" postWhitespace
                 || xs == [Text emptyTextNode])
 
         first =
             if openingTagStandalone then
-                renderTextNodeTrimEnd tn
+                renderTextNodeTrimEnd preTextOuter
                 ++ if ss == [] then "" else "\n"
             else
-                renderTextNode tn
+                renderTextNode preTextOuter
                 ++ subsection.preWhitespace
 
         second =
             if closingTagStandalone then
-                renderSection context sectionName (renderAst_ False (List.reverse <| Text (TextNode (List.head tt |> Maybe.withDefault "") (List.tail tt |> Maybe.withDefault [])) :: ys))
+                renderSection
+                    context
+                    sectionName
+                    (renderAst_
+                        False
+                        (List.reverse <|
+                            Text
+                                (TextNode
+                                    (List.head tt |> Maybe.withDefault "")
+                                    (List.tail tt |> Maybe.withDefault [])) :: ys))
                 ++ "\n"
             else
                 renderSection context sectionName (renderAst_ False (List.reverse <| Text (TextNode t tt) :: ys))
