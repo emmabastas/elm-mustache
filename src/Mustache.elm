@@ -233,8 +233,8 @@ type alias Ast = List AstNode
 -- name "foo.bar.baz" == Name ["foo", "bar", "baz"]
 type alias Name = List String
 
-name : String -> Name
-name s =
+parseName : String -> Name
+parseName s =
     case s of
         "." -> []
         _   -> String.split "." s
@@ -268,24 +268,24 @@ type alias Context = List Value
    ]
 -}
 type AstNode
-    = Text TextNode
-    | Variable
+    = AText TextNode
+    | AVariable
         { name : Name
         , escapeHtml : Bool
         }
-    | Section
+    | ASection
         { name : Name
         , subsection : Ast
         , postWhitespace : String
         , subsectionPreWhitespace : String
         }
-    | InvertedSection
+    | AInvertedSection
         { name : Name
         , subsection : Ast
         , postWhitespace : String
         , subsectionPreWhitespace : String
         }
-    | Partial
+    | APartial
         { name : Name
         , indentation : Int
         , postWhitespace : String
@@ -294,10 +294,10 @@ type AstNode
     -- information in the AST. However, `renderAst_` uses them to remove
     -- newlines where a user would expect them to be removed (standalone tags).
     -- See the documentation of `renderAst_` for more info.
-    | Comment
+    | AComment
         { postWhitespace : String
         }
-    | SetDelimiter
+    | ASetDelimiter
         { postWhitespace : String
         }
 
@@ -367,7 +367,7 @@ parser =
         (\tn ->
             parser_
                 { stack = []
-                , current = [Text tn]
+                , current = [AText tn]
                 , delim = { left = "{{", right = "}}" }
                 }
         )
@@ -384,11 +384,11 @@ parser_ initialState =
                             Nothing ->
                                 succeed state
 
-                            Just (VariableTag x) ->
-                                addNode (Variable x) state
+                            Just (TVariable x) ->
+                                addNode (AVariable x) state
                                 |> succeed
 
-                            Just (PartialTag partialName) ->
+                            Just (TPartial partialName) ->
                                 let
                                     indentation = case state.current of
                                         {- In order for indentation to be relevant
@@ -398,7 +398,7 @@ parser_ initialState =
                                            is on the same line, so instead we need
                                            `(TextNode s (_ :: _)) :: _`
                                         -}
-                                        Text (TextNode s (_ :: _)) :: _ ->
+                                        AText (TextNode s (_ :: _)) :: _ ->
                                             if String.all ((==) ' ') s then
                                                 String.length s
                                             else
@@ -415,7 +415,7 @@ parser_ initialState =
                                 |> mapChompedString
                                     (\s _ ->
                                         addNode
-                                            (Partial
+                                            (APartial
                                                 { name = partialName
                                                 , indentation = indentation
                                                 , postWhitespace = s
@@ -424,7 +424,7 @@ parser_ initialState =
                                             state
                                     )
 
-                            Just (SectionStart sectionName) ->
+                            Just (TSectionStart sectionName) ->
                                 chompWhile ((==) ' ')
                                 |. oneOf
                                     [ token "\n"
@@ -440,12 +440,12 @@ parser_ initialState =
                                                 , postWhitespace = postWhitespace
                                                 , subsectionPreWhitespace = s
                                                 }
-                                                |> Section
+                                                |> ASection
                                             )
                                             state
                                     )
 
-                            Just (InvertedSectionStart sectionName) ->
+                            Just (TInvertedSectionStart sectionName) ->
                                 chompWhile ((==) ' ')
                                 |. oneOf
                                     [ token "\n"
@@ -461,12 +461,12 @@ parser_ initialState =
                                                 , postWhitespace = postWhitespace
                                                 , subsectionPreWhitespace = s
                                                 }
-                                                |> InvertedSection
+                                                |> AInvertedSection
                                             )
                                             state
                                     )
 
-                            Just (SectionEnd sectionName) ->
+                            Just (TSectionEnd sectionName) ->
                                 chompWhile ((==) ' ')
                                 |. oneOf
                                     [ token "\n"
@@ -477,7 +477,7 @@ parser_ initialState =
                                         leaveSection sectionName postWhitespace state
                                     )
 
-                            Just CommentTag ->
+                            Just TComment ->
                                 chompWhile ((==) ' ')
                                 |. oneOf
                                     [ token "\n"
@@ -486,11 +486,11 @@ parser_ initialState =
                                 |> mapChompedString
                                     (\s _ ->
                                         addNode
-                                            (Comment { postWhitespace = s })
+                                            (AComment { postWhitespace = s })
                                             state
                                     )
 
-                            Just (SetDelimiterTag newDelimiter) ->
+                            Just (TSetDelimiter newDelimiter) ->
                                 chompWhile ((==) ' ')
                                 |. oneOf
                                     [ token "\n"
@@ -499,13 +499,13 @@ parser_ initialState =
                                 |> mapChompedString
                                     (\s _ ->
                                         addNode
-                                            (SetDelimiter { postWhitespace = s })
+                                            (ASetDelimiter { postWhitespace = s })
                                             { state | delim = newDelimiter }
                                     )
                       )
                   |> andThen
                       (\newState ->
-                          succeed (\tn -> Loop (addNode (Text tn) newState))
+                          succeed (\tn -> Loop (addNode (AText tn) newState))
                           |= textNode newState.delim
                       )
                   |> backtrackable
@@ -517,7 +517,7 @@ parser_ initialState =
                         if s == "" then
                             Done state
                         else
-                            Done (addNode (Text (singletonTextNode s)) state))
+                            Done (addNode (AText (singletonTextNode s)) state))
                 ])
 
 {-
@@ -570,19 +570,19 @@ textNode_ delim head_ =
         )
         |> map (\(head, tail) -> TextNode head tail)
 
-type Tag
-    = VariableTag
+type Tag_
+    = TVariable
         { name : Name
         , escapeHtml : Bool
         }
-    | PartialTag Name
-    | SectionStart Name
-    | InvertedSectionStart Name
-    | SectionEnd Name
-    | CommentTag
-    | SetDelimiterTag Delimiter
+    | TPartial Name
+    | TSectionStart Name
+    | TInvertedSectionStart Name
+    | TSectionEnd Name
+    | TComment
+    | TSetDelimiter Delimiter
 
-tag : Delimiter -> Parser (Maybe Tag)
+tag : Delimiter -> Parser (Maybe Tag_)
 tag delim =
     succeed identity
         |. token delim.left
@@ -595,7 +595,7 @@ tag delim =
                         |. token "}}}"
                         |> map
                             (\variableName ->
-                                Just <| VariableTag
+                                Just <| TVariable
                                     { name = variableName
                                     , escapeHtml = False
                                     }
@@ -611,7 +611,7 @@ tag delim =
                     |. token delim.right
                     |> map
                         (\variableName ->
-                            Just <| VariableTag
+                            Just <| TVariable
                                 { name = variableName
                                 , escapeHtml = False
                                 }
@@ -621,7 +621,7 @@ tag delim =
             -- {{# }}
             , andThen
                 (\_ ->
-                    succeed (Just << SectionStart)
+                    succeed (Just << TSectionStart)
                     |= tagName delim.right
                     |. token delim.right
                 )
@@ -629,7 +629,7 @@ tag delim =
             -- {{^ }}
             , andThen
                 (\_ ->
-                    succeed (Just << InvertedSectionStart)
+                    succeed (Just << TInvertedSectionStart)
                     |= tagName delim.right
                     |. token delim.right
                 )
@@ -637,7 +637,7 @@ tag delim =
             -- {{/ }}
             , andThen
                 (\_ ->
-                    succeed (Just << SectionEnd)
+                    succeed (Just << TSectionEnd)
                     |= tagName delim.right
                     |. token delim.right
                 )
@@ -649,14 +649,14 @@ tag delim =
                     |. token delim.right
                     |> map
                         (\partialName ->
-                            Just <| PartialTag partialName
+                            Just <| TPartial partialName
                         )
                 )
                 (token ">")
             -- {{! }}
             , andThen
                 (\_ ->
-                    succeed (Just CommentTag)
+                    succeed (Just TComment)
                     |. tagName delim.right
                     |. token delim.right
                 )
@@ -665,7 +665,7 @@ tag delim =
             , andThen
                 (\_ ->
                     oneOf
-                        [ succeed (Just << SetDelimiterTag)
+                        [ succeed (Just << TSetDelimiter)
                           |= delimiter delim.right
                           |> backtrackable
                         , succeed Nothing
@@ -678,7 +678,7 @@ tag delim =
               |. token delim.right
               |> map
                   (\variableName ->
-                      Just <| VariableTag
+                      Just <| TVariable
                           { name = variableName
                           , escapeHtml = True
                           }
@@ -690,7 +690,7 @@ tagName ending =
     succeed ()
     |. chompUntilBefore ending
     |> getChompedString
-    |> map (\s -> name (String.trim s))
+    |> map (\s -> parseName (String.trim s))
 
 delimiter : String -> Parser Delimiter
 delimiter rightDelim =
@@ -738,7 +738,7 @@ renderAst_ toplevel ast context =
 
         -- COMMENT
 
-        Text tn :: Comment r :: xs ->
+        AText tn :: AComment r :: xs ->
             renderCommentOrSetDelimiter
                 toplevel
                 context
@@ -748,7 +748,7 @@ renderAst_ toplevel ast context =
 
         -- SET DELIMITER
 
-        Text tn :: SetDelimiter r :: xs ->
+        AText tn :: ASetDelimiter r :: xs ->
             renderCommentOrSetDelimiter
                 toplevel
                 context
@@ -758,9 +758,9 @@ renderAst_ toplevel ast context =
 
         -- SECTION
 
-        Text outer :: Section r :: xs ->
+        AText outer :: ASection r :: xs ->
             case r.subsection of
-                Text inner :: ys ->
+                AText inner :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
@@ -783,9 +783,9 @@ renderAst_ toplevel ast context =
 
         -- INVERTED SECTION
 
-        Text outer :: InvertedSection r :: xs ->
+        AText outer :: AInvertedSection r :: xs ->
             case r.subsection of
-                Text inner :: ys ->
+                AText inner :: ys ->
                     renderSomeSection
                         { toplevel = toplevel
                         , context = context
@@ -807,20 +807,20 @@ renderAst_ toplevel ast context =
 
         -- TEXT
 
-        Text tn :: xs ->
+        AText tn :: xs ->
             renderTextNode tn
             |> (\s -> s ++ renderAst_ toplevel xs context)
 
         -- VARIABLE
 
-        Variable r :: xs ->
+        AVariable r :: xs ->
             interpolate (lookup context r.name)
             |> (if r.escapeHtml then htmlEscape else (\s -> s))
             |> (\s -> s ++ renderAst_ toplevel xs context)
 
         -- PARTIAL
 
-        Partial r :: xs ->
+        APartial r :: xs ->
             (case lookup context r.name |> Maybe.map (D.decodeValue D.string) of
                 -- The partial key has corresponding data in the context, and it
                 -- is a string.
@@ -870,10 +870,10 @@ renderAst_ toplevel ast context =
 
         -- These patterns should never match
 
-        Comment r :: xs -> ""
-        SetDelimiter r :: xs -> ""
-        Section r :: xs -> ""
-        InvertedSection r :: xs -> ""
+        AComment r :: xs -> ""
+        ASetDelimiter r :: xs -> ""
+        ASection r :: xs -> ""
+        AInvertedSection r :: xs -> ""
 
 renderCommentOrSetDelimiter :
     Bool
@@ -888,7 +888,7 @@ renderCommentOrSetDelimiter toplevel context tn postWhitespace xs =
 
         postStandalone =
             String.endsWith "\n" postWhitespace
-            || xs == [Text emptyTextNode]
+            || xs == [AText emptyTextNode]
     in
     if preStandalone && postStandalone then
         renderTextNodeTrimEnd tn
@@ -925,7 +925,7 @@ renderSomeSection { sectionName, toplevel, context, preTextOuter, subsection, po
             List.length tt > 0
             && endsInStandalone preTextInner
             && (String.endsWith "\n" postWhitespace
-                || xs == [Text emptyTextNode])
+                || xs == [AText emptyTextNode])
 
         first =
             if openingTagStandalone then
@@ -943,13 +943,13 @@ renderSomeSection { sectionName, toplevel, context, preTextOuter, subsection, po
                     (renderAst_
                         False
                         (List.reverse <|
-                            Text
+                            AText
                                 (TextNode
                                     (List.head tt |> Maybe.withDefault "")
                                     (List.tail tt |> Maybe.withDefault [])) :: ys))
                 ++ "\n"
             else
-                renderSection context sectionName (renderAst_ False (List.reverse <| Text (TextNode t tt) :: ys))
+                renderSection context sectionName (renderAst_ False (List.reverse <| AText (TextNode t tt) :: ys))
                 ++ postWhitespace
 
     in
@@ -1057,3 +1057,62 @@ isFalsy json =
     |> \d -> D.decodeValue d json
     |> Result.withDefault False
 
+{- INSPECT AST -}
+
+tags_ : AstNode -> Maybe Tag
+tags_ ast = case ast of
+    AText _ ->
+        Nothing
+    AVariable { name } ->
+        { name = name }
+        |> VariableData
+        |> Variable
+        |> Just
+    ASection { name, subsection } ->
+        { name = name
+        , inside = subsection
+        }
+        |> SectionData
+        |> Section
+        |> Just
+    AInvertedSection { name, subsection } ->
+        { name = name
+        , inside = subsection
+        }
+        |> InvertedSectionData
+        |> InvertedSection
+        |> Just
+    APartial { name } ->
+      { name = name
+      }
+      |> PartialData
+      |> Partial
+      |> Just
+    AComment _ ->
+        Nothing
+    ASetDelimiter _ ->
+        Nothing
+
+type Tag
+    = Variable VariableData
+    | Section SectionData
+    | InvertedSection InvertedSectionData
+    | Partial PartialData
+
+type VariableData = VariableData
+    { name : Name
+    }
+
+type SectionData = SectionData
+    { name : Name
+    , inside : Ast
+    }
+
+type InvertedSectionData = InvertedSectionData
+    { name : Name
+    , inside : Ast
+    }
+
+type PartialData = PartialData
+    { name : Name
+    }
