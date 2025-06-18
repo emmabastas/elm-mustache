@@ -13,6 +13,11 @@ These are the types of changes:
  - **Fixed** for any bug fixes.
  - **Security** in case of vulnerabilities.
 
+## UNRELEASED [1.2.0]
+
+### Added
+
+- New type `Tag` with function `tags : Ast -> List Tags`. This lets a user get certain information from a parsed mustache template, like the names of all tags. This was implemented in response to https://github.com/emmabastas/elm-mustache/issues/1
 
 ## [1.1.1] - 2025-05-27
 
@@ -41,6 +46,7 @@ Support for parsing and interpolating
 Known bug: `\r\n`-style line endings are converted to `\n` when they should be preserved.
 
 
+[1.2.0]: https://github.com/emmabastas/elm-mustache/releases/tag/1.2.0
 [1.1.1]: https://github.com/emmabastas/elm-mustache/releases/tag/1.1.1
 [1.1.0]: https://github.com/emmabastas/elm-mustache/releases/tag/1.1.0
 [1.0.0]: https://github.com/emmabastas/elm-mustache/releases/tag/1.0.0

@@ -50,6 +50,7 @@
 
 module Mustache exposing
     ( Ast
+    , Name
     , Context
     , render
     , parse
@@ -59,6 +60,16 @@ module Mustache exposing
     , interpolate
     , section
     , invertedSection
+    , Tag(..)
+    , VariableData
+    , SectionData
+    , InvertedSectionData
+    , PartialData
+    , tags
+    , name
+    , sectionContents
+    , invertedSectionContents
+    , contents
     )
 
 {-|
@@ -98,6 +109,16 @@ A string can be used as the template in a partial tag
     --> ]
     --> |> String.join "\n"
     --> |> Ok
+
+# Inspecting the parsed contents
+
+It is not possible to directly inspect the `Ast` type as it contains implementation details. There is however the `Tag` type.
+
+@docs Tag, tags, VariableData, SectionData, InvertedSectionData, PartialData
+
+You can get data out of the tags with the following functions.
+
+@docs name, Name, sectionContents, invertedSectionContents, contents
 
 # Niche usecases
 @docs htmlEscape, Context, lookup, interpolate, section, invertedSection
@@ -230,7 +251,11 @@ render template hash =
 -}
 type alias Ast = List AstNode
 
--- name "foo.bar.baz" == Name ["foo", "bar", "baz"]
+{-|
+  A Mustahce tag name represented as a list.
+  The name `foo.bar.baz` is represented by `["foo", "bar", "baz"]`.
+  The *implicit iterator* `{{.}}` is represented by the empty list `[]`.
+-}
 type alias Name = List String
 
 parseName : String -> Name
@@ -1059,60 +1084,116 @@ isFalsy json =
 
 {- INSPECT AST -}
 
-tags_ : AstNode -> Maybe Tag
-tags_ ast = case ast of
-    AText _ ->
-        Nothing
-    AVariable { name } ->
-        { name = name }
-        |> VariableData
-        |> Variable
-        |> Just
-    ASection { name, subsection } ->
-        { name = name
-        , inside = subsection
-        }
-        |> SectionData
-        |> Section
-        |> Just
-    AInvertedSection { name, subsection } ->
-        { name = name
-        , inside = subsection
-        }
-        |> InvertedSectionData
-        |> InvertedSection
-        |> Just
-    APartial { name } ->
-      { name = name
-      }
-      |> PartialData
-      |> Partial
-      |> Just
-    AComment _ ->
-        Nothing
-    ASetDelimiter _ ->
-        Nothing
-
+{-| -}
 type Tag
     = Variable VariableData
     | Section SectionData
     | InvertedSection InvertedSectionData
     | Partial PartialData
 
+{-| -}
 type VariableData = VariableData
     { name : Name
     }
 
+{-| -}
 type SectionData = SectionData
     { name : Name
     , inside : Ast
     }
 
+{-| -}
 type InvertedSectionData = InvertedSectionData
     { name : Name
     , inside : Ast
     }
 
+{-| -}
 type PartialData = PartialData
     { name : Name
     }
+
+{-| -}
+tags : Ast -> List Tag
+tags ast = List.filterMap tags_ (List.reverse ast)
+
+tags_ : AstNode -> Maybe Tag
+tags_ ast = case ast of
+    AText _ ->
+        Nothing
+    AVariable r ->
+        { name = r.name }
+        |> VariableData
+        |> Variable
+        |> Just
+    ASection r ->
+        { name = r.name
+        , inside = r.subsection
+        }
+        |> SectionData
+        |> Section
+        |> Just
+    AInvertedSection r ->
+        { name = r.name
+        , inside = r.subsection
+        }
+        |> InvertedSectionData
+        |> InvertedSection
+        |> Just
+    APartial r ->
+        { name = r.name
+        }
+        |> PartialData
+        |> Partial
+        |> Just
+    AComment _ ->
+        Nothing
+    ASetDelimiter _ ->
+        Nothing
+
+{-|
+  Get the name of a tag.
+
+    "Hello {{ world }}\n{{> body.contents }}"
+    |> parse
+    |> Result.withDefault []
+    |> tags
+    |> List.map name
+    --> [ ["world"], ["body", "contents"] ]
+-}
+name : Tag -> Name
+name t = case t of
+    Variable (VariableData r) ->
+        r.name
+    Section (SectionData r) ->
+        r.name
+    InvertedSection (InvertedSectionData r) ->
+        r.name
+    Partial (PartialData r) ->
+        r.name
+
+{-|
+  Get the contents inside a section.
+-}
+sectionContents : SectionData -> Ast
+sectionContents (SectionData r) = r.inside
+
+{-|
+  Get the contents inside an inverted section.
+-}
+invertedSectionContents : InvertedSectionData -> Ast
+invertedSectionContents (InvertedSectionData r) = r.inside
+
+{-|
+  If a tag is an (inverted) section, get its contents. `Nothing` otherwise.
+-}
+contents : Tag -> Maybe Ast
+contents t = case t of
+    Variable _ ->
+        Nothing
+    Section d ->
+        Just (sectionContents d)
+    InvertedSection d ->
+        Just (invertedSectionContents d)
+    Partial (PartialData r) ->
+        Nothing
