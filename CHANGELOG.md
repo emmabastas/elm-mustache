@@ -13,11 +13,15 @@ These are the types of changes:
  - **Fixed** for any bug fixes.
  - **Security** in case of vulnerabilities.
 
-## UNRELEASED [1.2.0]
+## [1.2.0] - 2025-06-20
 
 ### Added
 
 - New type `Tag` with function `tags : Ast -> List Tags`. This lets a user get certain information from a parsed mustache template, like the names of all tags. This was implemented in response to https://github.com/emmabastas/elm-mustache/issues/1
+
+### Fixed
+
+Exposed the `Name` alias (it was in public type signatures but not exposed)
 
 ## [1.1.1] - 2025-05-27
 
