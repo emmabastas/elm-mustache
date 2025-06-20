@@ -252,7 +252,7 @@ render template hash =
 type alias Ast = List AstNode
 
 {-|
-  A Mustahce tag name represented as a list.
+  A mustache tag name represented as a list.
   The name `foo.bar.baz` is represented by `["foo", "bar", "baz"]`.
   The *implicit iterator* `{{.}}` is represented by the empty list `[]`.
 -}
