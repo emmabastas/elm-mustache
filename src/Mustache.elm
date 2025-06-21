@@ -79,7 +79,7 @@ module Mustache exposing
 
 # Partials
 
-A string can be used as the template in a partial tag
+A string can be used as the template in a partial tag.
 
     import Json.Encode as E
 
@@ -252,7 +252,7 @@ render template hash =
 type alias Ast = List AstNode
 
 {-|
-  A Mustahce tag name represented as a list.
+  A mustache tag name represented as a list.
   The name `foo.bar.baz` is represented by `["foo", "bar", "baz"]`.
   The *implicit iterator* `{{.}}` is represented by the empty list `[]`.
 -}
@@ -1026,7 +1026,7 @@ interpolate m =
     |> \d -> D.decodeValue d (Maybe.withDefault E.null m)
     |> Result.withDefault "ERROR!!"
 
-{-| Render a mustache section. This is only intended to be used by preparsed templates generated with the `elm-mustache` CLI tool
+{-| Render a mustache section. This is only intended to be used by preparsed templates generated with the `elm-mustache` CLI tool.
 -}
 section : Context -> Name -> (Context -> String) -> String
 section context path inner = case lookup context path of
@@ -1043,7 +1043,7 @@ section context path inner = case lookup context path of
             |> \d -> D.decodeValue d sectionJson
             |> Result.withDefault "ERROR!!"
 
-{-| Render a mustache inverted section. This is only intended to be used by preparsed templates generated with the `elm-mustache` CLI tool
+{-| Render a mustache inverted section. This is only intended to be used by preparsed templates generated with the `elm-mustache` CLI tool.
 -}
 invertedSection : Context -> Name -> (Context -> String) -> String
 invertedSection context path inner = case lookup context path of
