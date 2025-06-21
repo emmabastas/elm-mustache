@@ -13,6 +13,12 @@ These are the types of changes:
  - **Fixed** for any bug fixes.
  - **Security** in case of vulnerabilities.
 
+## UNRELEASED [1.2.1]
+
+### Fixed
+
+- Typos in documentation (ab8e2bf)
+
 ## [1.2.0] - 2025-06-20
 
 ### Added
@@ -50,6 +56,7 @@ Support for parsing and interpolating
 Known bug: `\r\n`-style line endings are converted to `\n` when they should be preserved.
 
 
+[1.2.1]: https://github.com/emmabastas/elm-mustache/releases/tag/1.2.1
 [1.2.0]: https://github.com/emmabastas/elm-mustache/releases/tag/1.2.0
 [1.1.1]: https://github.com/emmabastas/elm-mustache/releases/tag/1.1.1
 [1.1.0]: https://github.com/emmabastas/elm-mustache/releases/tag/1.1.0
